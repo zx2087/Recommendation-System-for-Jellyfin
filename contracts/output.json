@@ -1,0 +1,40 @@
+{
+  "request_id": "req_20260401_0001",
+  "user_id": "user_1024",
+  "timestamp": "2026-04-01T20:30:00Z",
+  "model_version": "baseline-mock-v1",
+  "fallback_used": false,
+  "latency_ms": 12.4,
+  "recommendations": [
+    {
+      "rank": 1,
+      "movie_id": "movie_705",
+      "score": 0.9231,
+      "reason": "similar_to_recent_completed"
+    },
+    {
+      "rank": 2,
+      "movie_id": "movie_702",
+      "score": 0.9014,
+      "reason": "high_popularity"
+    },
+    {
+      "rank": 3,
+      "movie_id": "movie_707",
+      "score": 0.8872,
+      "reason": "co_watch_signal"
+    },
+    {
+      "rank": 4,
+      "movie_id": "movie_703",
+      "score": 0.8619,
+      "reason": "fresh_candidate"
+    },
+    {
+      "rank": 5,
+      "movie_id": "movie_704",
+      "score": 0.8427,
+      "reason": "popular_backup"
+    }
+  ]
+}
