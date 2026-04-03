@@ -12,8 +12,8 @@ import requests
 BASE_URL = "http://129.114.27.23:8000"
 ENDPOINT = f"{BASE_URL}/recommend"
 
-TOTAL_REQUESTS = 50
-CONCURRENCY = 5
+TOTAL_REQUESTS = 100
+CONCURRENCY = 1
 TIMEOUT_SECONDS = 10
 
 INPUT_JSON_PATH = Path(__file__).resolve().parent.parent / "contracts" / "input_sample.json"
