@@ -1,24 +1,62 @@
-from typing import List
-from pydantic import BaseModel, Field, field_validator
+from typing import List, Optional
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 EMBEDDING_DIM = 384
 
 
-class ScoringItem(BaseModel):
-    user_id: int
-    movie_id: int
-    user_embedding: List[float] = Field(..., description="User embedding vector (384-dim)")
-    movie_embedding: List[float] = Field(..., description="Movie embedding vector (384-dim)")
+class CandidateMovie(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    @field_validator("user_embedding", "movie_embedding")
+    movie_id: str = Field(..., description="Movie identifier")
+    movie_embedding: list = Field(..., description="Movie embedding vector")
+
+    @field_validator("movie_embedding")
     @classmethod
-    def validate_embedding_dim(cls, v):
+    def validate_movie_embedding(cls, v):
         if len(v) != EMBEDDING_DIM:
-            raise ValueError(f"embedding must have length {EMBEDDING_DIM}, got {len(v)}")
+            raise ValueError(f"movie_embedding must have length {EMBEDDING_DIM}, got {len(v)}")
         return v
 
 
-class ScoringResult(BaseModel):
-    user_id: int
-    movie_id: int
-    predicted_score: float
+class ClientContext(BaseModel):
+    surface: Optional[str] = Field(default="homepage")
+    device_type: Optional[str] = Field(default="web")
+    app_version: Optional[str] = Field(default="0.1.0")
+
+
+class RecommendRequest(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    request_id: str
+    user_id: str
+    timestamp: str
+    request_k: int = Field(default=10, ge=1, le=50)
+
+    user_embedding: list = Field(..., description="User embedding vector")
+    candidate_movies: List[CandidateMovie] = Field(default_factory=list)
+
+    client_context: Optional[ClientContext] = Field(default_factory=ClientContext)
+
+    @field_validator("user_embedding")
+    @classmethod
+    def validate_user_embedding(cls, v):
+        if len(v) != EMBEDDING_DIM:
+            raise ValueError(f"user_embedding must have length {EMBEDDING_DIM}, got {len(v)}")
+        return v
+
+
+class RecommendationItem(BaseModel):
+    rank: int = Field(..., ge=1)
+    movie_id: str
+    score: float
+    reason: str
+
+
+class RecommendResponse(BaseModel):
+    request_id: str
+    user_id: str
+    timestamp: str
+    model_version: str
+    fallback_used: bool
+    latency_ms: float = Field(..., ge=0.0)
+    recommendations: List[RecommendationItem]
