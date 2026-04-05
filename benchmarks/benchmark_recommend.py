@@ -32,7 +32,7 @@ CONCURRENCY     = int(os.getenv("CONCURRENCY", "1"))
 TIMEOUT_SECONDS = int(os.getenv("TIMEOUT_SECONDS", "30"))
 
 REPO_ROOT    = Path(__file__).resolve().parent.parent
-SAMPLE_PATH  = REPO_ROOT / "contracts" / "recommender_input.sample.json"
+SAMPLE_PATH  = REPO_ROOT / "contracts" / "benchmarks_input.json"
 
 
 # ── Load payload from the agreed contract sample ──────────────────────────────
@@ -53,18 +53,58 @@ BASE_PAYLOAD: list = _load_payload()
 def send_one_request(session: requests.Session, request_index: int) -> dict:
     start = time.perf_counter()
     try:
-        response = session.post(ENDPOINT, json=BASE_PAYLOAD, timeout=TIMEOUT_SECONDS)
+        response = session.post(
+            ENDPOINT,
+            json=BASE_PAYLOAD,
+            timeout=(TIMEOUT_SECONDS, TIMEOUT_SECONDS),
+        )
         elapsed_ms = (time.perf_counter() - start) * 1000
-        ok = response.status_code == 200
+
+        if response.status_code != 200:
+            return {
+                "ok": False,
+                "status_code": response.status_code,
+                "latency_ms": elapsed_ms,
+                "error": response.text[:300],
+                "error_type": "http_error",
+            }
+
+        if elapsed_ms > TIMEOUT_SECONDS * 1000:
+            return {
+                "ok": False,
+                "status_code": response.status_code,
+                "latency_ms": elapsed_ms,
+                "error": f"SLA timeout: {elapsed_ms:.2f} ms > {TIMEOUT_SECONDS * 1000} ms",
+                "error_type": "sla_timeout",
+            }
+
         return {
-            "ok": ok,
+            "ok": True,
             "status_code": response.status_code,
             "latency_ms": elapsed_ms,
-            "error": None if ok else response.text[:300],
+            "error": None,
+            "error_type": None,
         }
+
+    except requests.exceptions.Timeout:
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        return {
+            "ok": False,
+            "status_code": None,
+            "latency_ms": elapsed_ms,
+            "error": f"Network timeout after {TIMEOUT_SECONDS}s",
+            "error_type": "network_timeout",
+        }
+
     except Exception as e:
         elapsed_ms = (time.perf_counter() - start) * 1000
-        return {"ok": False, "status_code": None, "latency_ms": elapsed_ms, "error": str(e)}
+        return {
+            "ok": False,
+            "status_code": None,
+            "latency_ms": elapsed_ms,
+            "error": str(e),
+            "error_type": "exception",
+        }
 
 
 def percentile(sorted_values: list, p: float) -> float:

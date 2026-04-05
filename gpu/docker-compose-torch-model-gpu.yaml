@@ -1,0 +1,10 @@
+services:
+  torch_model_gpu_server:
+    build:
+      context: torch_model_gpu
+      dockerfile: torch_model_gpu/Dockerfile
+    container_name: jellyfin_torch_model_gpu_server
+    ports:
+      - "8004:8000"
+    gpus: all
+    restart: unless-stopped

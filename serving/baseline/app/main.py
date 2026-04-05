@@ -5,7 +5,7 @@ from .recommender import score_batch, MODEL_VERSION
 
 app = FastAPI(
     title="Jellyfin Recommender Baseline API",
-    description="Baseline FastAPI CPU service — mock scorer",
+    description="PyTorch scorer service — CPU, 1 uvicorn worker (serving baseline)",
     version="0.1.0",
 )
 
