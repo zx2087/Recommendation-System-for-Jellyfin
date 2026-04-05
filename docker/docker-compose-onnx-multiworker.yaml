@@ -1,0 +1,9 @@
+services:
+  onnx_multiworker_server:
+    build:
+      context: ../serving/onnx_multiworker
+      dockerfile: Dockerfile
+    container_name: jellyfin_onnx_multiworker_server
+    ports:
+      - "8005:8000"
+    restart: unless-stopped
