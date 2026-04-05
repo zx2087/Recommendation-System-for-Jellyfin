@@ -1,0 +1,9 @@
+services:
+  torch_model_server:
+    build:
+      context: ../serving/torch_model
+      dockerfile: Dockerfile
+    container_name: jellyfin_torch_model_server
+    ports:
+      - "8003:8000"
+    restart: unless-stopped

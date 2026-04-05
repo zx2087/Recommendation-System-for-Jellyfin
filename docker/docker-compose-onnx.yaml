@@ -1,0 +1,9 @@
+services:
+  onnx_server:
+    build:
+      context: ../serving/onnx
+      dockerfile: Dockerfile
+    container_name: jellyfin_onnx_server
+    ports:
+      - "8001:8000"
+    restart: unless-stopped

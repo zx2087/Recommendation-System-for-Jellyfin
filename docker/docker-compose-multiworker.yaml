@@ -1,0 +1,9 @@
+services:
+  multiworker_server:
+    build:
+      context: ../serving/multiworker
+      dockerfile: Dockerfile
+    container_name: jellyfin_multiworker_server
+    ports:
+      - "8002:8000"
+    restart: unless-stopped

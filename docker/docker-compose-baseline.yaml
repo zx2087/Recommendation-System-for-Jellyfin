@@ -1,0 +1,9 @@
+services:
+  baseline_server:
+    build:
+      context: ../serving/baseline
+      dockerfile: Dockerfile
+    container_name: jellyfin_baseline_server
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
