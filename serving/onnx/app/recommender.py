@@ -1,4 +1,3 @@
-import hashlib
 import time
 from pathlib import Path
 from typing import List
@@ -8,37 +7,11 @@ import onnxruntime as ort
 
 from .schemas import RecommendRequest, RecommendationItem, RecommendResponse
 
+EMBEDDING_DIM = 384
+FEATURE_DIM = EMBEDDING_DIM * 2 + 3
 
-MODEL_VERSION = "toy-onnx-v1"
-MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "toy_scorer.onnx"
-
-
-def stable_float_from_text(text: str, salt: str = "") -> float:
-    h = hashlib.md5(f"{salt}:{text}".encode("utf-8")).hexdigest()
-    value = int(h[:8], 16) / 0xFFFFFFFF
-    return float(value)
-
-
-def build_candidate_features(request: RecommendRequest, movie_id: str) -> List[float]:
-    completed_count = sum(1 for e in request.recent_events if e.watch_state == "completed")
-    stopped_count = sum(1 for e in request.recent_events if e.watch_state == "stopped")
-    started_count = sum(1 for e in request.recent_events if e.watch_state == "started")
-    total_watch = sum(e.watch_duration_sec for e in request.recent_events)
-
-    max_watch = max([e.watch_duration_sec for e in request.recent_events], default=1)
-    avg_watch = total_watch / max(len(request.recent_events), 1)
-
-    return [
-        stable_float_from_text(movie_id, "movie"),
-        stable_float_from_text(request.user_id, "user"),
-        min(completed_count / 10.0, 1.0),
-        min(stopped_count / 10.0, 1.0),
-        min(started_count / 10.0, 1.0),
-        min(avg_watch / 3600.0, 1.0),
-        min(max_watch / 3600.0, 1.0),
-        stable_float_from_text(movie_id + request.user_id, "pair"),
-    ]
-
+MODEL_VERSION = "mlp-best-onnx-v2"
+MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "model_mlp_best.onnx"
 
 SESSION = ort.InferenceSession(
     MODEL_PATH.as_posix(),
@@ -46,32 +19,48 @@ SESSION = ort.InferenceSession(
 )
 
 
-def sigmoid(x: np.ndarray) -> np.ndarray:
-    return 1.0 / (1.0 + np.exp(-x))
+def build_feature_matrix(request: RecommendRequest) -> tuple[list[str], np.ndarray]:
+    if not request.candidate_movies:
+        raise ValueError("candidate_movies cannot be empty")
+
+    user_emb = np.asarray(request.user_embedding, dtype=np.float32)
+    movie_ids: List[str] = []
+    rows: List[np.ndarray] = []
+
+    user_norm = np.linalg.norm(user_emb) + 1e-8
+
+    for item in request.candidate_movies:
+        movie_emb = np.asarray(item.movie_embedding, dtype=np.float32)
+
+        movie_norm = np.linalg.norm(movie_emb) + 1e-8
+        cosine_sim = float(np.sum(user_emb * movie_emb) / (user_norm * movie_norm))
+        dot_product = float(np.sum(user_emb * movie_emb))
+        l2_dist = float(np.linalg.norm(user_emb - movie_emb))
+
+        features = np.hstack([
+            user_emb,
+            movie_emb,
+            np.array([cosine_sim, dot_product, l2_dist], dtype=np.float32),
+        ]).astype(np.float32)
+
+        movie_ids.append(item.movie_id)
+        rows.append(features)
+
+    X = np.stack(rows)
+    if X.shape[1] != FEATURE_DIM:
+        raise ValueError(f"Expected feature dim {FEATURE_DIM}, got {X.shape[1]}")
+
+    return movie_ids, X
 
 
 def recommend(request: RecommendRequest) -> RecommendResponse:
     start = time.perf_counter()
 
-    candidate_ids = request.candidate_movie_ids or [
-        "movie_popular_001",
-        "movie_popular_002",
-        "movie_popular_003",
-        "movie_popular_004",
-        "movie_popular_005",
-    ]
+    movie_ids, X = build_feature_matrix(request)
+    raw_scores = SESSION.run(["scores"], {"features": X})[0]
+    raw_scores = np.asarray(raw_scores).reshape(-1).tolist()
 
-    candidate_ids = candidate_ids[: max(request.request_k, len(candidate_ids))]
-
-    feature_rows = np.array(
-        [build_candidate_features(request, mid) for mid in candidate_ids],
-        dtype=np.float32,
-    )
-
-    raw_scores = SESSION.run(["scores"], {"features": feature_rows})[0]
-    probs = sigmoid(raw_scores).tolist()
-
-    scored = list(zip(candidate_ids, probs))
+    scored = list(zip(movie_ids, raw_scores))
     scored.sort(key=lambda item: item[1], reverse=True)
     top_items = scored[: request.request_k]
 
@@ -79,8 +68,8 @@ def recommend(request: RecommendRequest) -> RecommendResponse:
         RecommendationItem(
             rank=i + 1,
             movie_id=movie_id,
-            score=round(float(score), 4),
-            reason="toy_onnx_score",
+            score=round(float(score), 6),
+            reason="mlp_onnx_score",
         )
         for i, (movie_id, score) in enumerate(top_items)
     ]

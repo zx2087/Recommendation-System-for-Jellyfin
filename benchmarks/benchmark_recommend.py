@@ -1,4 +1,5 @@
 import json
+import os
 import statistics
 import threading
 import time
@@ -7,19 +8,14 @@ from pathlib import Path
 
 import requests
 
-
-
-BASE_URL = "http://129.114.27.23:8000"
+BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000")
 ENDPOINT = f"{BASE_URL}/recommend"
 
-TOTAL_REQUESTS = 100
-CONCURRENCY = 1
-TIMEOUT_SECONDS = 10
+TOTAL_REQUESTS = int(os.getenv("TOTAL_REQUESTS", "100"))
+CONCURRENCY = int(os.getenv("CONCURRENCY", "1"))
+TIMEOUT_SECONDS = int(os.getenv("TIMEOUT_SECONDS", "10"))
 
 INPUT_JSON_PATH = Path(__file__).resolve().parent.parent / "contracts" / "input_sample.json"
-
-
-
 lock = threading.Lock()
 
 
@@ -30,14 +26,12 @@ def load_payload():
 
 def send_one_request(session: requests.Session, request_index: int):
     payload = load_payload()
-
     payload["request_id"] = f"bench_req_{request_index}"
 
     start = time.perf_counter()
     try:
         response = session.post(ENDPOINT, json=payload, timeout=TIMEOUT_SECONDS)
         elapsed_ms = (time.perf_counter() - start) * 1000
-
         ok = response.status_code == 200
         return {
             "ok": ok,
@@ -60,7 +54,6 @@ def percentile(sorted_values, p):
         return None
     if len(sorted_values) == 1:
         return sorted_values[0]
-
     k = (len(sorted_values) - 1) * p
     f = int(k)
     c = min(f + 1, len(sorted_values) - 1)
@@ -88,7 +81,6 @@ def main():
                 executor.submit(send_one_request, session, i)
                 for i in range(TOTAL_REQUESTS)
             ]
-
             for future in as_completed(futures):
                 result = future.result()
                 results.append(result)
@@ -123,7 +115,7 @@ def main():
         print("No successful requests, so latency stats are unavailable.")
 
     if failed_results:
-        print("\n=== Sample failures ===")
+        print("\\n=== Sample failures ===")
         for idx, item in enumerate(failed_results[:5], start=1):
             print(f"[{idx}] status={item['status_code']} error={item['error']}")
 

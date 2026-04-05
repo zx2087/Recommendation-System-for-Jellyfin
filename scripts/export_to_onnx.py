@@ -1,20 +1,26 @@
 from pathlib import Path
+import sys
 import torch
 
-from serving.torch_model.app.model import ToyScorer, FEATURE_DIM
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from serving.torch_model.app.model import RecommenderMLP, FEATURE_DIM
 
 
 def main():
-    torch.manual_seed(42)
+    model = RecommenderMLP(FEATURE_DIM)
 
-    model = ToyScorer(FEATURE_DIM)
-    state = torch.load("serving/torch_model/models/toy_scorer.pt", map_location="cpu")
+    model_path = ROOT / "serving" / "torch_model" / "models" / "model_mlp_best.pt"
+    print("Loading model from:", model_path)
+
+    state = torch.load(model_path, map_location="cpu")
     model.load_state_dict(state)
     model.eval()
 
     dummy_input = torch.randn(4, FEATURE_DIM, dtype=torch.float32)
 
-    out_path = Path("serving/onnx/models/toy_scorer.onnx")
+    out_path = ROOT / "serving" / "onnx" / "models" / "model_mlp_best.onnx"
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     torch.onnx.export(

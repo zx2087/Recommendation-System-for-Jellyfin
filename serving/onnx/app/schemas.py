@@ -1,12 +1,19 @@
-from typing import List, Optional, Literal
-from pydantic import BaseModel, Field
+from typing import List, Optional
+from pydantic import BaseModel, Field, field_validator
+
+EMBEDDING_DIM = 384
 
 
-class RecentEvent(BaseModel):
+class CandidateMovie(BaseModel):
     movie_id: str = Field(..., description="Movie identifier")
-    event_time: str = Field(..., description="ISO timestamp of the event")
-    watch_duration_sec: int = Field(..., ge=0, description="Watch duration in seconds")
-    watch_state: Literal["started", "stopped", "completed"]
+    movie_embedding: List[float] = Field(..., description="Movie embedding vector")
+
+    @field_validator("movie_embedding")
+    @classmethod
+    def validate_movie_embedding(cls, v):
+        if len(v) != EMBEDDING_DIM:
+            raise ValueError(f"movie_embedding must have length {EMBEDDING_DIM}, got {len(v)}")
+        return v
 
 
 class ClientContext(BaseModel):
@@ -20,15 +27,24 @@ class RecommendRequest(BaseModel):
     user_id: str
     timestamp: str
     request_k: int = Field(default=10, ge=1, le=50)
-    recent_events: List[RecentEvent] = Field(default_factory=list)
-    candidate_movie_ids: List[str] = Field(default_factory=list)
+
+    user_embedding: List[float] = Field(..., description="User embedding vector")
+    candidate_movies: List[CandidateMovie] = Field(default_factory=list)
+
     client_context: Optional[ClientContext] = Field(default_factory=ClientContext)
+
+    @field_validator("user_embedding")
+    @classmethod
+    def validate_user_embedding(cls, v):
+        if len(v) != EMBEDDING_DIM:
+            raise ValueError(f"user_embedding must have length {EMBEDDING_DIM}, got {len(v)}")
+        return v
 
 
 class RecommendationItem(BaseModel):
     rank: int = Field(..., ge=1)
     movie_id: str
-    score: float = Field(..., ge=0.0, le=1.0)
+    score: float
     reason: str
 
 

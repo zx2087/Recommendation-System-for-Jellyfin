@@ -1,21 +1,25 @@
-import torch
 import torch.nn as nn
 
+EMBEDDING_DIM = 384
+FEATURE_DIM = EMBEDDING_DIM * 2 + 3  # 771
 
-FEATURE_DIM = 8
 
+def RecommenderMLP(input_dim: int = FEATURE_DIM):
+    return nn.Sequential(
+        nn.Linear(input_dim, 512),
+        nn.BatchNorm1d(512),
+        nn.ReLU(),
+        nn.Dropout(0.3),
 
-class ToyScorer(nn.Module):
-    def __init__(self, input_dim: int = FEATURE_DIM):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, 16),
-            nn.ReLU(),
-            nn.Linear(16, 8),
-            nn.ReLU(),
-            nn.Linear(8, 1),
-        )
+        nn.Linear(512, 256),
+        nn.BatchNorm1d(256),
+        nn.ReLU(),
+        nn.Dropout(0.3),
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x: [num_candidates, feature_dim]
-        return self.net(x).squeeze(-1)
+        nn.Linear(256, 128),
+        nn.BatchNorm1d(128),
+        nn.ReLU(),
+        nn.Dropout(0.2),
+
+        nn.Linear(128, 1),
+    )
