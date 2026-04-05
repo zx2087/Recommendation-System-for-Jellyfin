@@ -1,51 +1,80 @@
 import time
+from pathlib import Path
 from typing import List
+
+import numpy as np
+import onnxruntime as ort
 
 from .schemas import RecommendRequest, RecommendationItem, RecommendResponse
 
-MODEL_VERSION = "baseline-mock-v2"
+EMBEDDING_DIM = 384
+FEATURE_DIM = EMBEDDING_DIM * 2 + 3  # 771
+
+MODEL_VERSION = "mlp-best-onnx-multiworker-v2"
+MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "model_mlp_best.onnx"
+
+# Each gunicorn worker loads its own session — no shared state, no GIL contention
+SESSION = ort.InferenceSession(
+    MODEL_PATH.as_posix(),
+    providers=["CPUExecutionProvider"],
+)
 
 
-def mock_rank_candidates(request: RecommendRequest) -> List[RecommendationItem]:
+def build_feature_matrix(request: RecommendRequest) -> tuple[list[str], np.ndarray]:
     if not request.candidate_movies:
-        fallback_ids = [
-            "movie_popular_001",
-            "movie_popular_002",
-            "movie_popular_003",
-            "movie_popular_004",
-            "movie_popular_005",
-        ]
-        selected_ids = fallback_ids[: request.request_k]
-    else:
-        selected_ids = [item.movie_id for item in request.candidate_movies[: request.request_k]]
+        raise ValueError("candidate_movies cannot be empty")
 
-    recommendations: List[RecommendationItem] = []
-    base_score = 0.95
+    user_emb = np.asarray(request.user_embedding, dtype=np.float32)
+    movie_ids: List[str] = []
+    rows: List[np.ndarray] = []
 
-    for idx, movie_id in enumerate(selected_ids, start=1):
-        score = max(0.5, base_score - (idx - 1) * 0.03)
-        if idx == 1:
-            reason = "baseline_rank_1"
-        elif idx == 2:
-            reason = "baseline_rank_2"
-        else:
-            reason = "baseline_mock_order"
+    user_norm = np.linalg.norm(user_emb) + 1e-8
 
-        recommendations.append(
-            RecommendationItem(
-                rank=idx,
-                movie_id=movie_id,
-                score=round(score, 4),
-                reason=reason,
-            )
-        )
+    for item in request.candidate_movies:
+        movie_emb = np.asarray(item.movie_embedding, dtype=np.float32)
 
-    return recommendations
+        movie_norm = np.linalg.norm(movie_emb) + 1e-8
+        cosine_sim = float(np.sum(user_emb * movie_emb) / (user_norm * movie_norm))
+        dot_product = float(np.sum(user_emb * movie_emb))
+        l2_dist = float(np.linalg.norm(user_emb - movie_emb))
+
+        features = np.hstack([
+            user_emb,
+            movie_emb,
+            np.array([cosine_sim, dot_product, l2_dist], dtype=np.float32),
+        ]).astype(np.float32)
+
+        movie_ids.append(item.movie_id)
+        rows.append(features)
+
+    X = np.stack(rows)
+    if X.shape[1] != FEATURE_DIM:
+        raise ValueError(f"Expected feature dim {FEATURE_DIM}, got {X.shape[1]}")
+
+    return movie_ids, X
 
 
 def recommend(request: RecommendRequest) -> RecommendResponse:
     start = time.perf_counter()
-    recommendations = mock_rank_candidates(request)
+
+    movie_ids, X = build_feature_matrix(request)
+    raw_scores = SESSION.run(["scores"], {"features": X})[0]
+    raw_scores = np.asarray(raw_scores).reshape(-1).tolist()
+
+    scored = list(zip(movie_ids, raw_scores))
+    scored.sort(key=lambda item: item[1], reverse=True)
+    top_items = scored[: request.request_k]
+
+    recommendations = [
+        RecommendationItem(
+            rank=i + 1,
+            movie_id=movie_id,
+            score=round(float(score), 6),
+            reason="mlp_onnx_multiworker_score",
+        )
+        for i, (movie_id, score) in enumerate(top_items)
+    ]
+
     latency_ms = (time.perf_counter() - start) * 1000
 
     return RecommendResponse(

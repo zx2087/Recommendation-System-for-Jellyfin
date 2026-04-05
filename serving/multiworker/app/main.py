@@ -4,8 +4,8 @@ from .schemas import RecommendRequest, RecommendResponse
 from .recommender import recommend, MODEL_VERSION
 
 app = FastAPI(
-    title="Jellyfin Recommender Baseline API",
-    description="Baseline FastAPI CPU service for movie recommendation",
+    title="Jellyfin Recommender ONNX Multi-Worker API",
+    description="ONNX scorer with multiple gunicorn workers for high throughput",
     version="0.1.0"
 )
 
@@ -14,7 +14,7 @@ app = FastAPI(
 def health():
     return {
         "status": "ok",
-        "model_version": MODEL_VERSION
+        "model_version": MODEL_VERSION,
     }
 
 
