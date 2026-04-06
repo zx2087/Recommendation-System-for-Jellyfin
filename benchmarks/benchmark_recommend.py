@@ -16,7 +16,9 @@ TIMEOUT_SECONDS = float(os.getenv("TIMEOUT_SECONDS", "30"))
 SLA_MS = float(os.getenv("SLA_MS", "0"))
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SAMPLE_PATH = REPO_ROOT / "contracts" / "benchmarks_input.json"
+SAMPLE_PATH = Path(
+    os.getenv("SAMPLE_PATH", str(REPO_ROOT / "contracts" / "benchmarks_input.json"))
+)
 
 
 def _load_payload() -> dict:
