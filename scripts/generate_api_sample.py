@@ -1,31 +1,13 @@
 """
 Generate contracts/recommender_input.sample.json in the unified API request format.
 
-Supported source formats:
-1) Old training pair format:
-   [
-     {
-       "user_id": ...,
-       "movie_id": ...,
-       "user_embedding": [...],
-       "movie_embedding": [...]
-     }
-   ]
-
-2) New API request format:
-   {
-     "request_id": "...",
-     "user_id": "...",
-     "timestamp": "...",
-     "request_k": 10,
-     "user_embedding": [...],
-     "candidates": [
-       {"movie_id": "...", "movie_embedding": [...]}
-     ]
-   }
-
-Run from repo root:
+Usage:
     python scripts/generate_api_sample.py
+
+Behavior:
+- Prefer contracts/recommender_input.json as source if it exists.
+- Otherwise reuse contracts/recommender_input.sample.json as source.
+- Always write to contracts/recommender_input.sample.json.
 """
 
 from __future__ import annotations
@@ -36,23 +18,35 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCE_PATH = ROOT / "contracts" / "recommender_input.json"
-OUTPUT_PATH = ROOT / "contracts" / "recommender_input.json"
+PREFERRED_SOURCE_PATH = ROOT / "contracts" / "recommender_input.json"
+FALLBACK_SOURCE_PATH = ROOT / "contracts" / "recommender_input.sample.json"
+OUTPUT_PATH = ROOT / "contracts" / "recommender_input.sample.json"
+
+
+def get_source_path() -> Path:
+    if PREFERRED_SOURCE_PATH.exists():
+        return PREFERRED_SOURCE_PATH
+    if FALLBACK_SOURCE_PATH.exists():
+        return FALLBACK_SOURCE_PATH
+    raise FileNotFoundError(
+        f"Could not find source sample. Tried: {PREFERRED_SOURCE_PATH}, {FALLBACK_SOURCE_PATH}"
+    )
 
 
 def load_source_sample() -> dict:
-    with open(SOURCE_PATH, encoding="utf-8") as f:
+    source_path = get_source_path()
+    with open(source_path, encoding="utf-8") as f:
         data = json.load(f)
 
     if isinstance(data, list):
         if not data:
-            raise ValueError(f"{SOURCE_PATH} is an empty list")
+            raise ValueError(f"{source_path} is an empty list")
         return data[0]
 
     if isinstance(data, dict):
         return data
 
-    raise ValueError(f"Unsupported JSON format in {SOURCE_PATH}: {type(data)}")
+    raise ValueError(f"Unsupported JSON format in {source_path}: {type(data)}")
 
 
 def is_new_request_format(sample: dict) -> bool:

@@ -6,7 +6,7 @@ EMBEDDING_DIM = 384
 
 
 class CandidateMovie(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, protected_namespaces=())
 
     movie_id: str = Field(..., description="Movie identifier")
     movie_embedding: List[float] = Field(..., description="Movie embedding vector")
@@ -28,7 +28,7 @@ class ClientContext(BaseModel):
 
 
 class RecommendRequest(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, protected_namespaces=())
 
     request_id: str
     user_id: str
@@ -56,6 +56,8 @@ class RecommendationItem(BaseModel):
 
 
 class RecommendResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     request_id: str
     user_id: str
     timestamp: str

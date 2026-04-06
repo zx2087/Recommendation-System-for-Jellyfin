@@ -41,10 +41,19 @@ MODEL_VERSION = _resolve_model_version()
 MODEL_PATH = resolve_model_path("model_mlp_best.pt")
 
 
+def _normalize_state_dict(state: dict) -> dict:
+    if not state:
+        return state
+    sample_key = next(iter(state))
+    if sample_key.startswith("net."):
+        return state
+    return {f"net.{k}": v for k, v in state.items()}
+
+
 def _load_model() -> torch.nn.Module:
     model = RecommenderMLP(FEATURE_DIM)
-    state = torch.load(MODEL_PATH, map_location="cpu")
-    model.load_state_dict(state)
+    state = torch.load(MODEL_PATH, map_location="cpu", weights_only=True)
+    model.load_state_dict(_normalize_state_dict(state))
     model.eval()
     return model
 
