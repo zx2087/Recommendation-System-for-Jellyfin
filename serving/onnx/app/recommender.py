@@ -24,7 +24,7 @@ def resolve_model_path(filename: str) -> Path:
 
     candidates = [
         here.parents[1] / "models" / filename,  # Docker: /app/models/...
-        here.parents[3] / "models" / filename,  # local repo root: <repo>/models/...
+        Path.cwd() / "models" / filename,       # local repo root when running from repo root
     ]
 
     for p in candidates:
