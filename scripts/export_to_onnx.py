@@ -11,7 +11,7 @@ from serving.torch_model.app.model import RecommenderMLP, FEATURE_DIM
 def main():
     model = RecommenderMLP(FEATURE_DIM)
 
-    model_path = ROOT / "serving" / "torch_model" / "models" / "model_mlp_best.pt"
+    model_path = ROOT / "models" / "model_mlp_best.pt"
     print("Loading model from:", model_path)
 
     state = torch.load(model_path, map_location="cpu")
@@ -20,7 +20,7 @@ def main():
 
     dummy_input = torch.randn(4, FEATURE_DIM, dtype=torch.float32)
 
-    out_path = ROOT / "serving" / "onnx" / "models" / "model_mlp_best.onnx"
+    out_path = ROOT / "models" / "model_mlp_best.onnx"
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     torch.onnx.export(

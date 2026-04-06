@@ -19,8 +19,26 @@ def _resolve_model_version() -> str:
     return "mlp-best-pt-v2"
 
 
+def resolve_model_path(filename: str) -> Path:
+    here = Path(__file__).resolve()
+
+    candidates = [
+        here.parents[1] / "models" / filename,  # Docker: /app/models/...
+        here.parents[3] / "models" / filename,  # local repo root: <repo>/models/...
+    ]
+
+    for p in candidates:
+        if p.exists():
+            return p
+
+    raise FileNotFoundError(
+        f"Could not find model {filename}. Tried: "
+        + ", ".join(str(p) for p in candidates)
+    )
+
+
 MODEL_VERSION = _resolve_model_version()
-MODEL_PATH = Path(__file__).resolve().parents[3] / "models" / "model_mlp_best.pt"
+MODEL_PATH = resolve_model_path("model_mlp_best.pt")
 
 
 def _load_model() -> torch.nn.Module:

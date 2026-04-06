@@ -1,25 +1,28 @@
+import torch
 import torch.nn as nn
 
 EMBEDDING_DIM = 384
-FEATURE_DIM = EMBEDDING_DIM * 2 + 3  # 771
+FEATURE_DIM = EMBEDDING_DIM * 2 + 3  # user_emb + movie_emb + [cosine, dot, l2]
 
 
-def RecommenderMLP(input_dim: int = FEATURE_DIM):
-    return nn.Sequential(
-        nn.Linear(input_dim, 512),
-        nn.BatchNorm1d(512),
-        nn.ReLU(),
-        nn.Dropout(0.3),
+class RecommenderMLP(nn.Module):
+    def __init__(
+        self,
+        input_dim: int = FEATURE_DIM,
+        hidden_dims: tuple[int, int] = (256, 64),
+        dropout: float = 0.1,
+    ) -> None:
+        super().__init__()
 
-        nn.Linear(512, 256),
-        nn.BatchNorm1d(256),
-        nn.ReLU(),
-        nn.Dropout(0.3),
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, hidden_dims[0]),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dims[0], hidden_dims[1]),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dims[1], 1),
+        )
 
-        nn.Linear(256, 128),
-        nn.BatchNorm1d(128),
-        nn.ReLU(),
-        nn.Dropout(0.2),
-
-        nn.Linear(128, 1),
-    )
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x).squeeze(-1)

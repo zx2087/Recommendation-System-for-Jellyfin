@@ -19,8 +19,26 @@ def _resolve_model_version() -> str:
     return "mlp-best-onnx-v2"
 
 
+def resolve_model_path(filename: str) -> Path:
+    here = Path(__file__).resolve()
+
+    candidates = [
+        here.parents[1] / "models" / filename,  # Docker: /app/models/...
+        here.parents[3] / "models" / filename,  # local repo root: <repo>/models/...
+    ]
+
+    for p in candidates:
+        if p.exists():
+            return p
+
+    raise FileNotFoundError(
+        f"Could not find model {filename}. Tried: "
+        + ", ".join(str(p) for p in candidates)
+    )
+
+
 MODEL_VERSION = _resolve_model_version()
-MODEL_PATH = Path(__file__).resolve().parents[3] / "models" / "model_mlp_best.onnx"
+MODEL_PATH = resolve_model_path("model_mlp_best.onnx")
 
 SESSION = ort.InferenceSession(
     MODEL_PATH.as_posix(),
@@ -32,9 +50,9 @@ def _build_features(req: RecommendRequest) -> tuple[np.ndarray, list[str]]:
     if not req.candidates:
         return np.empty((0, FEATURE_DIM), dtype=np.float32), []
 
-    user = np.asarray(req.user_embedding, dtype=np.float32)  # (384,)
+    user = np.asarray(req.user_embedding, dtype=np.float32)
     movie_ids = [c.movie_id for c in req.candidates]
-    movies = np.asarray([c.movie_embedding for c in req.candidates], dtype=np.float32)  # (N, 384)
+    movies = np.asarray([c.movie_embedding for c in req.candidates], dtype=np.float32)
 
     users = np.broadcast_to(user, movies.shape).astype(np.float32)
 
