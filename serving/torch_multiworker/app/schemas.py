@@ -1,4 +1,5 @@
 from typing import List, Optional
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 EMBEDDING_DIM = 384
@@ -8,13 +9,15 @@ class CandidateMovie(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     movie_id: str = Field(..., description="Movie identifier")
-    movie_embedding: list = Field(..., description="Movie embedding vector")
+    movie_embedding: List[float] = Field(..., description="Movie embedding vector")
 
     @field_validator("movie_embedding")
     @classmethod
-    def validate_movie_embedding(cls, v):
+    def validate_movie_embedding(cls, v: List[float]) -> List[float]:
         if len(v) != EMBEDDING_DIM:
-            raise ValueError(f"movie_embedding must have length {EMBEDDING_DIM}, got {len(v)}")
+            raise ValueError(
+                f"movie_embedding must have length {EMBEDDING_DIM}, got {len(v)}"
+            )
         return v
 
 
@@ -31,17 +34,17 @@ class RecommendRequest(BaseModel):
     user_id: str
     timestamp: str
     request_k: int = Field(default=10, ge=1, le=50)
-
-    user_embedding: list = Field(..., description="User embedding vector")
-    candidate_movies: List[CandidateMovie] = Field(default_factory=list)
-
+    user_embedding: List[float] = Field(..., description="User embedding vector")
+    candidates: List[CandidateMovie] = Field(default_factory=list)
     client_context: Optional[ClientContext] = Field(default_factory=ClientContext)
 
     @field_validator("user_embedding")
     @classmethod
-    def validate_user_embedding(cls, v):
+    def validate_user_embedding(cls, v: List[float]) -> List[float]:
         if len(v) != EMBEDDING_DIM:
-            raise ValueError(f"user_embedding must have length {EMBEDDING_DIM}, got {len(v)}")
+            raise ValueError(
+                f"user_embedding must have length {EMBEDDING_DIM}, got {len(v)}"
+            )
         return v
 
 

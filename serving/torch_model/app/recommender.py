@@ -1,28 +1,26 @@
 from pathlib import Path
-from typing import List
+from time import perf_counter
 
 import numpy as np
 import torch
 
 from .model import RecommenderMLP, FEATURE_DIM
-from .schemas import ScoringItem, ScoringResult
+from .schemas import RecommendRequest, RecommendResponse, RecommendationItem
 
-MODEL_VERSION = "mlp-best-pt-v2"
-MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "model_mlp_best.pt"
+EMBEDDING_DIM = 384
 
 
-def _build_features(items: List[ScoringItem]) -> np.ndarray:
-    rows = []
-    for item in items:
-        u = np.asarray(item.user_embedding, dtype=np.float32)
-        m = np.asarray(item.movie_embedding, dtype=np.float32)
-        u_norm = np.linalg.norm(u) + 1e-8
-        m_norm = np.linalg.norm(m) + 1e-8
-        cosine  = float(np.dot(u, m) / (u_norm * m_norm))
-        dot     = float(np.dot(u, m))
-        l2      = float(np.linalg.norm(u - m))
-        rows.append(np.hstack([u, m, np.array([cosine, dot, l2], dtype=np.float32)]))
-    return np.stack(rows).astype(np.float32)
+def _resolve_model_version() -> str:
+    p = Path(__file__).resolve().as_posix()
+    if "torch_multiworker" in p:
+        return "mlp-best-pt-multiworker-v2"
+    if "torch_model" in p:
+        return "mlp-best-pt-v2"
+    return "mlp-best-pt-v2"
+
+
+MODEL_VERSION = _resolve_model_version()
+MODEL_PATH = Path(__file__).resolve().parents[3] / "models" / "model_mlp_best.pt"
 
 
 def _load_model() -> torch.nn.Module:
@@ -36,12 +34,71 @@ def _load_model() -> torch.nn.Module:
 _MODEL = _load_model()
 
 
-def score_batch(items: List[ScoringItem]) -> List[ScoringResult]:
-    X = _build_features(items)
+def _build_features(req: RecommendRequest) -> tuple[np.ndarray, list[str]]:
+    if not req.candidates:
+        return np.empty((0, FEATURE_DIM), dtype=np.float32), []
+
+    user = np.asarray(req.user_embedding, dtype=np.float32)
+    movie_ids = [c.movie_id for c in req.candidates]
+    movies = np.asarray([c.movie_embedding for c in req.candidates], dtype=np.float32)
+
+    users = np.broadcast_to(user, movies.shape).astype(np.float32)
+
+    user_norms = np.linalg.norm(users, axis=1) + 1e-8
+    movie_norms = np.linalg.norm(movies, axis=1) + 1e-8
+
+    dots = np.einsum("ij,ij->i", users, movies).astype(np.float32)
+    cosines = (dots / (user_norms * movie_norms)).astype(np.float32)
+    l2s = np.linalg.norm(users - movies, axis=1).astype(np.float32)
+
+    extra = np.stack([cosines, dots, l2s], axis=1).astype(np.float32)
+    features = np.concatenate([users, movies, extra], axis=1).astype(np.float32)
+
+    return features, movie_ids
+
+
+def score_request(req: RecommendRequest) -> RecommendResponse:
+    started = perf_counter()
+
+    if not req.candidates:
+        latency_ms = (perf_counter() - started) * 1000
+        return RecommendResponse(
+            request_id=req.request_id,
+            user_id=req.user_id,
+            timestamp=req.timestamp,
+            model_version=MODEL_VERSION,
+            fallback_used=False,
+            latency_ms=round(latency_ms, 3),
+            recommendations=[],
+        )
+
+    X, movie_ids = _build_features(req)
     x = torch.tensor(X, dtype=torch.float32)
+
     with torch.no_grad():
-        scores = _MODEL(x).cpu().numpy().reshape(-1).tolist()
-    return [
-        ScoringResult(user_id=item.user_id, movie_id=item.movie_id, predicted_score=round(float(s), 8))
-        for item, s in zip(items, scores)
+        scores = _MODEL(x).cpu().numpy().reshape(-1)
+
+    top_k = min(req.request_k, len(movie_ids))
+    top_indices = np.argsort(scores)[::-1][:top_k]
+
+    recommendations = [
+        RecommendationItem(
+            rank=rank,
+            movie_id=movie_ids[idx],
+            score=round(float(scores[idx]), 8),
+            reason="ranked_by_torch_model",
+        )
+        for rank, idx in enumerate(top_indices, start=1)
     ]
+
+    latency_ms = (perf_counter() - started) * 1000
+
+    return RecommendResponse(
+        request_id=req.request_id,
+        user_id=req.user_id,
+        timestamp=req.timestamp,
+        model_version=MODEL_VERSION,
+        fallback_used=False,
+        latency_ms=round(latency_ms, 3),
+        recommendations=recommendations,
+    )
