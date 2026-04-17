@@ -33,7 +33,7 @@ class RecommendRequest(BaseModel):
     request_id: str
     user_id: str
     timestamp: str
-    request_k: int = Field(default=10, ge=1, le=50)
+    request_k: int = Field(default=10, ge=1, le=500)
     user_embedding: List[float] = Field(..., description="User embedding vector")
     candidates: List[CandidateMovie] = Field(default_factory=list)
     client_context: Optional[ClientContext] = Field(default_factory=ClientContext)
