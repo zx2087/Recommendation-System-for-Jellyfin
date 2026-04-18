@@ -1,0 +1,610 @@
+{
+  "request_id": "bench-2000",
+  "user_id": "1",
+  "timestamp": "2026-04-05T20:00:00Z",
+  "model_version": "mlp-best-onnx-v2",
+  "fallback_used": false,
+  "latency_ms": 56.894,
+  "recommendations": [
+    {
+      "rank": 1,
+      "movie_id": "1608",
+      "score": 7.13197279,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 2,
+      "movie_id": "809",
+      "score": 7.13091707,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 3,
+      "movie_id": "10",
+      "score": 7.12978411,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 4,
+      "movie_id": "1717",
+      "score": 7.12929296,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 5,
+      "movie_id": "700",
+      "score": 7.12842798,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 6,
+      "movie_id": "918",
+      "score": 7.12806225,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 7,
+      "movie_id": "119",
+      "score": 7.12675667,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 8,
+      "movie_id": "1826",
+      "score": 7.12619162,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 9,
+      "movie_id": "1027",
+      "score": 7.12478495,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 10,
+      "movie_id": "1499",
+      "score": 7.12438774,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 11,
+      "movie_id": "228",
+      "score": 7.12331247,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 12,
+      "movie_id": "1935",
+      "score": 7.12266827,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 13,
+      "movie_id": "1136",
+      "score": 7.12109232,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 14,
+      "movie_id": "337",
+      "score": 7.11944389,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 15,
+      "movie_id": "591",
+      "score": 7.11860275,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 16,
+      "movie_id": "1245",
+      "score": 7.11698055,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 17,
+      "movie_id": "446",
+      "score": 7.11515951,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 18,
+      "movie_id": "1390",
+      "score": 7.11444998,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 19,
+      "movie_id": "1354",
+      "score": 7.11245298,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 20,
+      "movie_id": "555",
+      "score": 7.11045265,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 21,
+      "movie_id": "482",
+      "score": 7.10840893,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 22,
+      "movie_id": "1463",
+      "score": 7.10750103,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 23,
+      "movie_id": "664",
+      "score": 7.10532904,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 24,
+      "movie_id": "1281",
+      "score": 7.10401106,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 25,
+      "movie_id": "1572",
+      "score": 7.10212946,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 26,
+      "movie_id": "773",
+      "score": 7.09978151,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 27,
+      "movie_id": "373",
+      "score": 7.09763479,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 28,
+      "movie_id": "1681",
+      "score": 7.09634018,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 29,
+      "movie_id": "882",
+      "score": 7.09382105,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 30,
+      "movie_id": "1172",
+      "score": 7.09305668,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 31,
+      "movie_id": "83",
+      "score": 7.09120321,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 32,
+      "movie_id": "1790",
+      "score": 7.09007692,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 33,
+      "movie_id": "1971",
+      "score": 7.08840704,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 34,
+      "movie_id": "991",
+      "score": 7.0873456,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 35,
+      "movie_id": "264",
+      "score": 7.0864377,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 36,
+      "movie_id": "192",
+      "score": 7.08453941,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 37,
+      "movie_id": "1899",
+      "score": 7.08334446,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 38,
+      "movie_id": "1063",
+      "score": 7.08167839,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 39,
+      "movie_id": "1100",
+      "score": 7.08044434,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 40,
+      "movie_id": "301",
+      "score": 7.0774765,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 41,
+      "movie_id": "1862",
+      "score": 7.07685137,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 42,
+      "movie_id": "155",
+      "score": 7.0748024,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 43,
+      "movie_id": "1209",
+      "score": 7.07314014,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 44,
+      "movie_id": "410",
+      "score": 7.06999397,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 45,
+      "movie_id": "954",
+      "score": 7.06987333,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 46,
+      "movie_id": "1318",
+      "score": 7.06541204,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 47,
+      "movie_id": "1753",
+      "score": 7.06486368,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 48,
+      "movie_id": "46",
+      "score": 7.06274366,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 49,
+      "movie_id": "519",
+      "score": 7.06209469,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 50,
+      "movie_id": "845",
+      "score": 7.05762959,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 51,
+      "movie_id": "1427",
+      "score": 7.05726862,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 52,
+      "movie_id": "628",
+      "score": 7.05378294,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 53,
+      "movie_id": "1644",
+      "score": 7.0524478,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 54,
+      "movie_id": "1536",
+      "score": 7.04870987,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 55,
+      "movie_id": "737",
+      "score": 7.04504824,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 56,
+      "movie_id": "736",
+      "score": 7.04497147,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 57,
+      "movie_id": "1645",
+      "score": 7.03973627,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 58,
+      "movie_id": "1535",
+      "score": 7.03961134,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 59,
+      "movie_id": "846",
+      "score": 7.03589916,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 60,
+      "movie_id": "47",
+      "score": 7.03199387,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 61,
+      "movie_id": "627",
+      "score": 7.03189087,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 62,
+      "movie_id": "1754",
+      "score": 7.03033686,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 63,
+      "movie_id": "1426",
+      "score": 7.0263648,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 64,
+      "movie_id": "955",
+      "score": 7.0263319,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 65,
+      "movie_id": "156",
+      "score": 7.02225161,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 66,
+      "movie_id": "1863",
+      "score": 7.0205245,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 67,
+      "movie_id": "518",
+      "score": 7.01845121,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 68,
+      "movie_id": "1064",
+      "score": 7.01634216,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 69,
+      "movie_id": "1317",
+      "score": 7.01278782,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 70,
+      "movie_id": "265",
+      "score": 7.01209259,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 71,
+      "movie_id": "1972",
+      "score": 7.01028299,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 72,
+      "movie_id": "1173",
+      "score": 7.00592804,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 73,
+      "movie_id": "409",
+      "score": 7.00462675,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 74,
+      "movie_id": "374",
+      "score": 7.00150537,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 75,
+      "movie_id": "1208",
+      "score": 6.99878216,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 76,
+      "movie_id": "1282",
+      "score": 6.99509859,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 77,
+      "movie_id": "483",
+      "score": 6.99050426,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 78,
+      "movie_id": "300",
+      "score": 6.99037218,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 79,
+      "movie_id": "1099",
+      "score": 6.98435545,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 80,
+      "movie_id": "1391",
+      "score": 6.98385715,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 81,
+      "movie_id": "592",
+      "score": 6.97908735,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 82,
+      "movie_id": "1898",
+      "score": 6.97826385,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 83,
+      "movie_id": "191",
+      "score": 6.97571039,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 84,
+      "movie_id": "1500",
+      "score": 6.97219276,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 85,
+      "movie_id": "990",
+      "score": 6.96962166,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 86,
+      "movie_id": "701",
+      "score": 6.96725512,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 87,
+      "movie_id": "1789",
+      "score": 6.96345901,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 88,
+      "movie_id": "82",
+      "score": 6.96084738,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 89,
+      "movie_id": "1609",
+      "score": 6.96011877,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 90,
+      "movie_id": "810",
+      "score": 6.95500755,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 91,
+      "movie_id": "881",
+      "score": 6.95458746,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 92,
+      "movie_id": "11",
+      "score": 6.94982529,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 93,
+      "movie_id": "1680",
+      "score": 6.94824886,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 94,
+      "movie_id": "1718",
+      "score": 6.94761896,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 95,
+      "movie_id": "919",
+      "score": 6.9422965,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 96,
+      "movie_id": "772",
+      "score": 6.93911934,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 97,
+      "movie_id": "120",
+      "score": 6.93689537,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 98,
+      "movie_id": "1827",
+      "score": 6.93461704,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 99,
+      "movie_id": "1571",
+      "score": 6.93259048,
+      "reason": "ranked_by_onnx_model"
+    },
+    {
+      "rank": 100,
+      "movie_id": "1028",
+      "score": 6.92911386,
+      "reason": "ranked_by_onnx_model"
+    }
+  ]
+}
