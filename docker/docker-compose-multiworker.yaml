@@ -16,9 +16,9 @@ services:
     image: prom/prometheus:v2.54.1
     container_name: jellyfin_multiworker_prometheus
     command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--config.file=/etc/prometheus/multiworker_prometheus.yml"
     volumes:
-      - ./prometheus/multiworker-prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus:/etc/prometheus:ro
     ports:
       - "19090:9090"
     depends_on:

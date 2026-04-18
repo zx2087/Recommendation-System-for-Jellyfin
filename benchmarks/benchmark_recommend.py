@@ -10,14 +10,14 @@ import requests
 BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 ENDPOINT = f"{BASE_URL}/recommend"
 
-TOTAL_REQUESTS = int(os.getenv("TOTAL_REQUESTS", "300"))
+TOTAL_REQUESTS = int(os.getenv("TOTAL_REQUESTS", "50"))
 CONCURRENCY = int(os.getenv("CONCURRENCY", "1"))
 TIMEOUT_SECONDS = float(os.getenv("TIMEOUT_SECONDS", "30"))
 SLA_MS = float(os.getenv("SLA_MS", "0"))
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_PATH = Path(
-    os.getenv("SAMPLE_PATH", str(REPO_ROOT / "contracts" / "benchmarks_input.json"))
+    os.getenv("SAMPLE_PATH", str(REPO_ROOT / "contracts" / "benchmarks_input_2000.json"))
 )
 
 
