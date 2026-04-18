@@ -23,7 +23,7 @@ from .schemas import RecommendRequest, RecommendResponse, RecommendationItem
 EMBEDDING_DIM = 384
 FEATURE_DIM = EMBEDDING_DIM * 2 + 3  # 771
 
-LATENCY_THRESHOLD_S: float = float(os.getenv("LATENCY_FALLBACK_THRESHOLD_S", "5.0"))
+LATENCY_THRESHOLD_S: float = float(os.getenv("LATENCY_FALLBACK_THRESHOLD_S", "5"))
 
 _CIRCUIT_WINDOW: int = 50
 _CIRCUIT_FALLBACK_RATE: float = 0.30

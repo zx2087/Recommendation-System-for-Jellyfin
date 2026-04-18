@@ -61,12 +61,12 @@ def build_payload(request_index: int) -> dict:
     return payload
 
 
-def send_one_request(session: requests.Session, request_index: int) -> dict:
+def send_one_request(request_index: int) -> dict:
     payload = build_payload(request_index)
     start = time.perf_counter()
 
     try:
-        response = session.post(
+        response = requests.post(
             ENDPOINT,
             json=payload,
             timeout=(TIMEOUT_SECONDS, TIMEOUT_SECONDS),
@@ -119,19 +119,20 @@ def send_one_request(session: requests.Session, request_index: int) -> dict:
         }
 
 
-def warmup(session: requests.Session, n: int = 10) -> None:
+def warmup(n: int = 2) -> None:
     print(f"Warming up ({n} requests)...")
     for i in range(n):
         payload = build_payload(i)
         payload["request_id"] = f"warmup-{i}"
         try:
-            session.post(
+            requests.post(
                 ENDPOINT,
                 json=payload,
                 timeout=(TIMEOUT_SECONDS, TIMEOUT_SECONDS),
             )
-        except Exception:
-            pass
+            print(f"  warmup {i+1}/{n} done")
+        except Exception as e:
+            print(f"  warmup {i+1}/{n} failed: {e}")
 
 
 def summarize_failures(failed_results: list[dict]) -> None:
@@ -166,21 +167,29 @@ def main() -> None:
     print(f"SLA timeout    : {'disabled' if SLA_MS <= 0 else f'{SLA_MS} ms'}")
     print()
 
-    with requests.Session() as session:
-        warmup(session)
+    warmup(2)
 
-        overall_start = time.perf_counter()
-        results: list[dict] = []
+    overall_start = time.perf_counter()
+    results: list[dict] = []
 
-        with ThreadPoolExecutor(max_workers=CONCURRENCY) as executor:
-            futures = [
-                executor.submit(send_one_request, session, i)
-                for i in range(TOTAL_REQUESTS)
-            ]
-            for future in as_completed(futures):
-                results.append(future.result())
+    with ThreadPoolExecutor(max_workers=CONCURRENCY) as executor:
+        futures = [
+            executor.submit(send_one_request, i)
+            for i in range(TOTAL_REQUESTS)
+        ]
 
-        overall_elapsed = time.perf_counter() - overall_start
+        completed = 0
+        for future in as_completed(futures):
+            result = future.result()
+            results.append(result)
+            completed += 1
+
+            if completed % 10 == 0 or completed == TOTAL_REQUESTS:
+                ok_count = sum(1 for r in results if r["ok"])
+                fail_count = len(results) - ok_count
+                print(f"[progress] {completed}/{TOTAL_REQUESTS} done | ok={ok_count} fail={fail_count}")
+
+    overall_elapsed = time.perf_counter() - overall_start
 
     success_results = [r for r in results if r["ok"]]
     failed_results = [r for r in results if not r["ok"]]
