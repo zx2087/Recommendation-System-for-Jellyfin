@@ -20,7 +20,7 @@ services:
     volumes:
       - ./prometheus:/etc/prometheus:ro
     ports:
-      - "19090:9090"
+      - "9090:9090"
     depends_on:
       - multiworker_server
     restart: unless-stopped
