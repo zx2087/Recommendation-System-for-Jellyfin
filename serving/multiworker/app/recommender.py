@@ -1,110 +1,210 @@
+from __future__ import annotations
+
 import json
 import os
+import threading
+from collections import deque
 from pathlib import Path
 from time import perf_counter
+from typing import Optional
 
 import numpy as np
 import onnxruntime as ort
 
-from .metrics import METRICS
+from .metrics import (
+    CANDIDATE_COUNT,
+    FALLBACK_TOTAL,
+    REQUEST_LATENCY,
+    REQUESTS_TOTAL,
+    RETURN_COUNT,
+)
 from .schemas import RecommendRequest, RecommendResponse, RecommendationItem
 
 EMBEDDING_DIM = 384
 FEATURE_DIM = EMBEDDING_DIM * 2 + 3  # 771
 
+LATENCY_THRESHOLD_S: float = float(os.getenv("LATENCY_FALLBACK_THRESHOLD_S", "5.0"))
 
-def _resolve_model_version() -> str:
-    p = Path(__file__).resolve().as_posix()
-    if "onnx_multiworker" in p:
-        return "mlp-best-onnx-multiworker-v2"
-    if "multiworker" in p:
-        return "mlp-best-onnx-multiworker-v2"
-    return "mlp-best-onnx-v2"
+_CIRCUIT_WINDOW: int = 50
+_CIRCUIT_FALLBACK_RATE: float = 0.30
 
-
-def resolve_model_path(filename: str) -> Path:
-    here = Path(__file__).resolve()
-
-    candidates = [
-        here.parents[1] / "models" / filename,  # Docker: /app/models/...
-        Path.cwd() / "models" / filename,  # local repo root when running from repo root
-    ]
-
-    for p in candidates:
-        if p.exists():
-            return p
-
-    raise FileNotFoundError(
-        f"Could not find model {filename}. Tried: " + ", ".join(str(p) for p in candidates)
-    )
+_STATE_FILE = Path(os.getenv("MODEL_STATE_FILE", "/tmp/jellyfin_model_state.json"))
 
 
 def _normalize_mode(value: str) -> str:
     mode = (value or "model").strip().lower()
-    if mode not in {"model", "fallback"}:
-        return "model"
-    return mode
+    return mode if mode in {"model", "fallback"} else "model"
 
 
-def _fallback_version(pool_size: int) -> str:
-    return f"fallback-popular-{pool_size}-v1"
+def resolve_model_path(filename: str) -> Path:
+    here = Path(__file__).resolve()
+    candidates = [
+        here.parents[1] / "models" / filename,
+        Path.cwd() / "models" / filename,
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    raise FileNotFoundError(
+        f"Could not find {filename}. Tried: " + ", ".join(str(p) for p in candidates)
+    )
 
 
-def _resolve_pool_size(value: str) -> int:
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        return 100
-    return max(1, min(500, parsed))
+def _create_session(path: Path) -> ort.InferenceSession:
+    return ort.InferenceSession(str(path), providers=["CPUExecutionProvider"])
 
 
 def _resolve_fallback_ids_path() -> Path:
-    here = Path(__file__).resolve()
     env_override = os.getenv("FALLBACK_IDS_FILE", "")
     if env_override:
         return Path(env_override)
-
-    return here.parent / "fallback_popular_movies.json"
+    return Path(__file__).resolve().parent / "fallback_popular_movies.json"
 
 
 def _load_fallback_ids(path: Path) -> list[str]:
     if not path.exists():
         return []
-
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
-
     if isinstance(data, list):
         return [str(v) for v in data if v is not None]
-
     if isinstance(data, dict):
         values = data.get("movie_ids") or data.get("item_ids") or []
-        if isinstance(values, list):
-            return [str(v) for v in values if v is not None]
-
+        return [str(v) for v in values if v is not None]
     return []
 
 
-MODEL_VERSION = _resolve_model_version()
-MODEL_PATH = resolve_model_path("model_mlp_best.onnx")
-SERVING_MODE = _normalize_mode(os.getenv("SERVING_MODE", "model"))
-FALLBACK_POOL_SIZE = _resolve_pool_size(os.getenv("FALLBACK_POOL_SIZE", "100"))
-FALLBACK_IDS_PATH = _resolve_fallback_ids_path()
-FALLBACK_IDS = _load_fallback_ids(FALLBACK_IDS_PATH)
+class ServingState:
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._mode: str = _normalize_mode(os.getenv("SERVING_MODE", "model"))
+        self._model_version: str = os.getenv("MODEL_VERSION", "mlp-best-onnx-multiworker-v2")
+        self._model_path: Path = resolve_model_path("model_mlp_best.onnx")
+        self._session: ort.InferenceSession = _create_session(self._model_path)
+        self._state_mtime: float = 0.0
+        self._recent_fallback: deque[bool] = deque(maxlen=_CIRCUIT_WINDOW)
+        self._fallback_ids_path: Path = _resolve_fallback_ids_path()
+        self._fallback_ids: list[str] = _load_fallback_ids(self._fallback_ids_path)
+        self._fallback_pool_size: int = max(
+            1, min(500, int(os.getenv("FALLBACK_POOL_SIZE", "100")))
+        )
 
-SESSION = ort.InferenceSession(
-    MODEL_PATH.as_posix(),
-    providers=["CPUExecutionProvider"],
-)
+    def _check_state_file(self) -> None:
+        if not _STATE_FILE.exists():
+            return
+        try:
+            mtime = _STATE_FILE.stat().st_mtime
+        except OSError:
+            return
+        if mtime <= self._state_mtime:
+            return
+        try:
+            with open(_STATE_FILE, "r", encoding="utf-8") as f:
+                state = json.load(f)
+            new_mode = _normalize_mode(state.get("mode", ""))
+            new_model_path_str = state.get("model_path", "")
+            new_version = state.get("model_version", "")
+            with self._lock:
+                self._mode = new_mode
+                if new_model_path_str:
+                    p = Path(new_model_path_str)
+                    if p.exists() and p != self._model_path:
+                        self._session = _create_session(p)
+                        self._model_path = p
+                if new_version:
+                    self._model_version = new_version
+                self._state_mtime = mtime
+        except Exception:
+            pass
+
+    def _write_state_file(self) -> None:
+        with self._lock:
+            state = {
+                "mode": self._mode,
+                "model_path": str(self._model_path),
+                "model_version": self._model_version,
+            }
+        try:
+            _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+            tmp = _STATE_FILE.with_suffix(".tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(state, f)
+            tmp.replace(_STATE_FILE)
+        except Exception:
+            pass
+
+    def _record_fallback(self, used: bool) -> None:
+        with self._lock:
+            self._recent_fallback.append(used)
+            if (
+                len(self._recent_fallback) >= _CIRCUIT_WINDOW
+                and self._mode == "model"
+            ):
+                rate = sum(self._recent_fallback) / len(self._recent_fallback)
+                if rate > _CIRCUIT_FALLBACK_RATE:
+                    self._mode = "fallback"
+
+    @property
+    def mode(self) -> str:
+        with self._lock:
+            return self._mode
+
+    @property
+    def model_version(self) -> str:
+        with self._lock:
+            return self._model_version
+
+    @property
+    def session(self) -> ort.InferenceSession:
+        with self._lock:
+            return self._session
+
+    @property
+    def fallback_ids(self) -> list[str]:
+        with self._lock:
+            return self._fallback_ids
+
+    @property
+    def fallback_pool_size(self) -> int:
+        with self._lock:
+            return self._fallback_pool_size
+
+    def set_mode(self, mode: str) -> None:
+        with self._lock:
+            self._mode = _normalize_mode(mode)
+        self._write_state_file()
+
+    def reload_model(self, model_path: str, model_version: Optional[str] = None) -> None:
+        p = Path(model_path)
+        new_session = _create_session(p)
+        with self._lock:
+            self._session = new_session
+            self._model_path = p
+            if model_version:
+                self._model_version = model_version
+            self._recent_fallback.clear()
+            self._mode = "model"
+        self._write_state_file()
+
+    def get_runtime_flags(self) -> dict:
+        with self._lock:
+            recent = list(self._recent_fallback)
+        rate = (sum(recent) / len(recent)) if recent else 0.0
+        with self._lock:
+            return {
+                "serving_mode": self._mode,
+                "model_version": self._model_version,
+                "model_path": str(self._model_path),
+                "fallback_pool_size": self._fallback_pool_size,
+                "fallback_ids_count": len(self._fallback_ids),
+                "circuit_fallback_rate": round(rate, 4),
+                "circuit_window": _CIRCUIT_WINDOW,
+                "circuit_fallback_rate_threshold": _CIRCUIT_FALLBACK_RATE,
+                "latency_fallback_threshold_s": LATENCY_THRESHOLD_S,
+            }
 
 
-def get_runtime_flags() -> dict:
-    return {
-        "serving_mode": SERVING_MODE,
-        "fallback_pool_size": FALLBACK_POOL_SIZE,
-        "fallback_ids_file": str(FALLBACK_IDS_PATH),
-        "fallback_ids_count": len(FALLBACK_IDS),
-    }
+STATE = ServingState()
 
 
 def _build_features(req: RecommendRequest) -> tuple[np.ndarray, list[str]]:
@@ -114,96 +214,93 @@ def _build_features(req: RecommendRequest) -> tuple[np.ndarray, list[str]]:
     user = np.asarray(req.user_embedding, dtype=np.float32)
     movie_ids = [c.movie_id for c in req.candidates]
     movies = np.asarray([c.movie_embedding for c in req.candidates], dtype=np.float32)
-
     users = np.broadcast_to(user, movies.shape).astype(np.float32)
 
     user_norms = np.linalg.norm(users, axis=1) + 1e-8
     movie_norms = np.linalg.norm(movies, axis=1) + 1e-8
-
     dots = np.einsum("ij,ij->i", users, movies).astype(np.float32)
     cosines = (dots / (user_norms * movie_norms)).astype(np.float32)
     l2s = np.linalg.norm(users - movies, axis=1).astype(np.float32)
 
     extra = np.stack([cosines, dots, l2s], axis=1).astype(np.float32)
-    features = np.concatenate([users, movies, extra], axis=1).astype(np.float32)
-
-    return features, movie_ids
+    return np.concatenate([users, movies, extra], axis=1).astype(np.float32), movie_ids
 
 
 def _fallback_movie_ids(req: RecommendRequest) -> list[str]:
-    if FALLBACK_IDS:
-        return FALLBACK_IDS[:FALLBACK_POOL_SIZE]
-
+    ids = STATE.fallback_ids
+    if ids:
+        return ids[: STATE.fallback_pool_size]
     if req.candidates:
-        return [c.movie_id for c in req.candidates][:FALLBACK_POOL_SIZE]
-
+        return [c.movie_id for c in req.candidates][: STATE.fallback_pool_size]
     return []
 
 
-def _build_fallback_response(req: RecommendRequest, started: float, reason: str) -> RecommendResponse:
+def _build_fallback_response(
+    req: RecommendRequest, started: float, reason: str
+) -> RecommendResponse:
     movie_ids = _fallback_movie_ids(req)
     top_k = min(req.request_k, len(movie_ids))
-
     recommendations = [
-        RecommendationItem(
-            rank=rank,
-            movie_id=movie_ids[idx],
-            score=0.0,
-            reason=reason,
-        )
+        RecommendationItem(rank=rank, movie_id=movie_ids[idx], score=0.0, reason=reason)
         for rank, idx in enumerate(range(top_k), start=1)
     ]
+    latency_s = perf_counter() - started
 
-    latency_ms = (perf_counter() - started) * 1000
-
-    METRICS.observe_fallback(reason)
-    METRICS.observe_return_count(len(recommendations))
-    METRICS.observe_request(mode="fallback", status="ok")
-    METRICS.observe_latency(mode="fallback", seconds=latency_ms / 1000.0)
+    FALLBACK_TOTAL.labels(reason=reason).inc()
+    RETURN_COUNT.observe(len(recommendations))
+    REQUESTS_TOTAL.labels(mode="fallback", status="ok").inc()
+    REQUEST_LATENCY.labels(mode="fallback").observe(latency_s)
+    STATE._record_fallback(True)
 
     return RecommendResponse(
         request_id=req.request_id,
         user_id=req.user_id,
         timestamp=req.timestamp,
-        model_version=_fallback_version(FALLBACK_POOL_SIZE),
+        model_version=f"fallback-popular-{STATE.fallback_pool_size}-v1",
         fallback_used=True,
-        latency_ms=round(latency_ms, 3),
+        latency_ms=round(latency_s * 1000, 3),
         recommendations=recommendations,
     )
 
 
 def score_request(req: RecommendRequest) -> RecommendResponse:
-    started = perf_counter()
-    METRICS.observe_candidate_count(len(req.candidates))
+    STATE._check_state_file()
 
-    if SERVING_MODE == "fallback":
+    started = perf_counter()
+    CANDIDATE_COUNT.observe(len(req.candidates))
+
+    if STATE.mode == "fallback":
         return _build_fallback_response(req, started, reason="fallback_mode_enabled")
 
     if not req.candidates:
-        METRICS.observe_request(mode="model", status="ok")
-        latency_ms = (perf_counter() - started) * 1000
-        METRICS.observe_latency(mode="model", seconds=latency_ms / 1000.0)
-        METRICS.observe_return_count(0)
+        latency_s = perf_counter() - started
+        REQUESTS_TOTAL.labels(mode="model", status="ok").inc()
+        REQUEST_LATENCY.labels(mode="model").observe(latency_s)
+        RETURN_COUNT.observe(0)
+        STATE._record_fallback(False)
         return RecommendResponse(
             request_id=req.request_id,
             user_id=req.user_id,
             timestamp=req.timestamp,
-            model_version=MODEL_VERSION,
+            model_version=STATE.model_version,
             fallback_used=False,
-            latency_ms=round(latency_ms, 3),
+            latency_ms=round(latency_s * 1000, 3),
             recommendations=[],
         )
 
     X, movie_ids = _build_features(req)
 
     try:
-        scores = SESSION.run(["scores"], {"features": X})[0].reshape(-1)
+        scores = STATE.session.run(["scores"], {"features": X})[0].reshape(-1)
     except Exception:
         return _build_fallback_response(req, started, reason="fallback_inference_error")
 
+    elapsed_s = perf_counter() - started
+    if elapsed_s > LATENCY_THRESHOLD_S:
+        return _build_fallback_response(req, started, reason="fallback_latency_exceeded")
+
     top_k = min(req.request_k, len(movie_ids))
     top_indices = np.argsort(scores)[::-1][:top_k]
-
     recommendations = [
         RecommendationItem(
             rank=rank,
@@ -214,18 +311,17 @@ def score_request(req: RecommendRequest) -> RecommendResponse:
         for rank, idx in enumerate(top_indices, start=1)
     ]
 
-    latency_ms = (perf_counter() - started) * 1000
-
-    METRICS.observe_request(mode="model", status="ok")
-    METRICS.observe_latency(mode="model", seconds=latency_ms / 1000.0)
-    METRICS.observe_return_count(len(recommendations))
+    REQUESTS_TOTAL.labels(mode="model", status="ok").inc()
+    REQUEST_LATENCY.labels(mode="model").observe(elapsed_s)
+    RETURN_COUNT.observe(len(recommendations))
+    STATE._record_fallback(False)
 
     return RecommendResponse(
         request_id=req.request_id,
         user_id=req.user_id,
         timestamp=req.timestamp,
-        model_version=MODEL_VERSION,
+        model_version=STATE.model_version,
         fallback_used=False,
-        latency_ms=round(latency_ms, 3),
+        latency_ms=round(elapsed_s * 1000, 3),
         recommendations=recommendations,
     )
