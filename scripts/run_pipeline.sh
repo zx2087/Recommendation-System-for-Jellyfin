@@ -6,13 +6,7 @@ PT_PATH="/tmp/model_mlp_best.pt"
 ONNX_PATH="/tmp/model_mlp_best.onnx"
 
 echo "========================================"
-echo " Step 1: Retrain MLP"
-echo "========================================"
-python3 -m scripts.retrain --config "$CONFIG"
-
-echo ""
-echo "========================================"
-echo " Step 2: Export .pt -> .onnx & upload"
+echo " Export .pt -> .onnx & upload to MinIO"
 echo "========================================"
 python3 scripts/export_to_onnx.py \
     --config    "$CONFIG"   \
