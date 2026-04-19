@@ -91,8 +91,8 @@
         },
         {
           "datasource": {"type": "prometheus", "uid": "prometheus-jellyfin"},
-          "expr": "5000",
-          "legendFormat": "5s threshold",
+          "expr": "1000",
+          "legendFormat": "1s threshold",
           "refId": "D"
         }
       ],
@@ -103,7 +103,7 @@
         },
         "overrides": [
           {
-            "matcher": {"id": "byName", "options": "5s threshold"},
+            "matcher": {"id": "byName", "options": "1s threshold"},
             "properties": [
               {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}},
               {"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [8, 4]}}

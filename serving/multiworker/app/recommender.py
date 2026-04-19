@@ -44,7 +44,7 @@ def _download_onnx_from_minio(dest: Path) -> None:
     s3.download_file(bucket, obj_key, str(dest))
     print("[ServingState] Download complete.")
 
-LATENCY_THRESHOLD_S: float = float(os.getenv("LATENCY_FALLBACK_THRESHOLD_S", "5"))
+LATENCY_THRESHOLD_S: float = float(os.getenv("LATENCY_FALLBACK_THRESHOLD_S", "1"))
 
 _CIRCUIT_WINDOW: int = 50
 _CIRCUIT_FALLBACK_RATE: float = 0.30

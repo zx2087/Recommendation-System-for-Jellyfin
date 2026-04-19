@@ -5,6 +5,6 @@ __pycache__/
 *.pyc
 .DS_Store
 .env
-material
-gpu
-
+tmp/material
+tmp/gpu
+tmp
