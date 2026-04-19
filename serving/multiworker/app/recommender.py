@@ -20,8 +20,29 @@ from .metrics import (
 )
 from .schemas import RecommendRequest, RecommendResponse, RecommendationItem
 
+import boto3
+from botocore.client import Config as BotocoreConfig
+
 EMBEDDING_DIM = 384
-FEATURE_DIM = EMBEDDING_DIM * 2 + 3  # 771
+
+def _download_onnx_from_minio(dest: Path) -> None:
+    endpoint   = os.environ["MINIO_ENDPOINT"]
+    access_key = os.environ["MINIO_ACCESS_KEY"]
+    secret_key = os.environ["MINIO_SECRET_KEY"]
+    bucket     = os.getenv("MINIO_BUCKET", "warehouse")
+    obj_key    = os.getenv("ONNX_OBJECT",  "models/mlp/latest/model_mlp_best.onnx")
+
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=endpoint,
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        config=BotocoreConfig(signature_version="s3v4"),
+    )
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    print(f"[ServingState] Downloading s3://{bucket}/{obj_key} -> {dest}")
+    s3.download_file(bucket, obj_key, str(dest))
+    print("[ServingState] Download complete.")
 
 LATENCY_THRESHOLD_S: float = float(os.getenv("LATENCY_FALLBACK_THRESHOLD_S", "5"))
 
@@ -79,7 +100,12 @@ class ServingState:
         self._lock = threading.Lock()
         self._mode: str = _normalize_mode(os.getenv("SERVING_MODE", "model"))
         self._model_version: str = os.getenv("MODEL_VERSION", "mlp-best-onnx-multiworker-v2")
-        self._model_path: Path = resolve_model_path("model_mlp_best.onnx")
+        local_onnx = Path("/tmp/model_mlp_best.onnx")
+        if os.getenv("MINIO_ENDPOINT") and not local_onnx.exists():
+            _download_onnx_from_minio(local_onnx)
+            self._model_path = local_onnx
+        else:
+            self._model_path = local_onnx if local_onnx.exists() else resolve_model_path("model_mlp_best.onnx")
         self._session: ort.InferenceSession = _create_session(self._model_path)
         self._state_mtime: float = 0.0
         self._recent_fallback: deque[bool] = deque(maxlen=_CIRCUIT_WINDOW)
@@ -207,23 +233,17 @@ class ServingState:
 STATE = ServingState()
 
 
-def _build_features(req: RecommendRequest) -> tuple[np.ndarray, list[str]]:
+def _build_features(req: RecommendRequest) -> tuple[np.ndarray, np.ndarray, list[str]]:
     if not req.candidates:
-        return np.empty((0, FEATURE_DIM), dtype=np.float32), []
+        empty = np.empty((0, EMBEDDING_DIM), dtype=np.float32)
+        return empty, empty, []
 
     user = np.asarray(req.user_embedding, dtype=np.float32)
     movie_ids = [c.movie_id for c in req.candidates]
     movies = np.asarray([c.movie_embedding for c in req.candidates], dtype=np.float32)
     users = np.broadcast_to(user, movies.shape).astype(np.float32)
 
-    user_norms = np.linalg.norm(users, axis=1) + 1e-8
-    movie_norms = np.linalg.norm(movies, axis=1) + 1e-8
-    dots = np.einsum("ij,ij->i", users, movies).astype(np.float32)
-    cosines = (dots / (user_norms * movie_norms)).astype(np.float32)
-    l2s = np.linalg.norm(users - movies, axis=1).astype(np.float32)
-
-    extra = np.stack([cosines, dots, l2s], axis=1).astype(np.float32)
-    return np.concatenate([users, movies, extra], axis=1).astype(np.float32), movie_ids
+    return users, movies, movie_ids
 
 
 def _fallback_movie_ids(req: RecommendRequest) -> list[str]:
@@ -288,10 +308,16 @@ def score_request(req: RecommendRequest) -> RecommendResponse:
             recommendations=[],
         )
 
-    X, movie_ids = _build_features(req)
+    users, movies, movie_ids = _build_features(req)
 
     try:
-        scores = STATE.session.run(["scores"], {"features": X})[0].reshape(-1)
+        scores = STATE.session.run(
+            ["scores"],
+            {
+                "user_embedding": users,  # (N, 384) float32
+                "movie_embedding": movies,  # (N, 384) float32
+            }
+        )[0].reshape(-1)
     except Exception:
         return _build_fallback_response(req, started, reason="fallback_inference_error")
 

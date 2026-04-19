@@ -6,3 +6,4 @@ onnxruntime==1.19.2
 numpy==2.1.1
 orjson==3.10.7
 prometheus-client==0.21.0
+boto3==1.35.36          
